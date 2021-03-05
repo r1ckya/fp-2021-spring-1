@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 
@@ -48,6 +49,7 @@ class Indexable c where
   getUnsafe :: c a -> Index c -> a
   getUnsafe x i = helper $ get x i
     where
+      helper :: Maybe a -> a
       helper Nothing = error "Index out of range"
       helper (Just x) = x
 
@@ -68,6 +70,7 @@ class Indexable c where
   updateUnsafe :: c a -> Index c -> a -> c a
   updateUnsafe x i v = helper $ update x i v
     where
+      helper :: Maybe a -> a
       helper Nothing = error "Index out of range"
       helper (Just x) = x
 
@@ -212,8 +215,11 @@ instance Scorable Char where
     | x == y = 5
     | otherwise = -4
 
-align
-  :: (Scorable a, Indexable c) => c a -> c a -> (Float, ([Maybe a], [Maybe a]))
+align :: forall c a.
+      (Scorable a, Indexable c)
+      => c a
+      -> c a
+      -> (Float, ([Maybe a], [Maybe a]))
 align seq1 seq2 = (getUnsafe dp (n, m), backward (n, m) ([], []))
   where
     flattenSeq1 = map (getUnsafe seq1) (indices seq1)
@@ -224,12 +230,13 @@ align seq1 seq2 = (getUnsafe dp (n, m), backward (n, m) ([], []))
 
     m = length flattenSeq2
 
-    dp_init =
+    dpInit =
       A.array ((0, 0), (n, m)) [((i, j), 0) | i <- [0 .. n], j <- [0 .. m]]
 
-    dp = forward dp_init (indices dp_init)
+    dp = forward dpInit (indices dpInit)
 
     -- build score matrix with dp
+    forward :: Array (Int, Int) Float -> [(Int, Int)] -> Array (Int, Int) Float
     forward dp [] = dp
     forward dp ((i, j):xs) = forward dp' xs
       where
@@ -249,6 +256,7 @@ align seq1 seq2 = (getUnsafe dp (n, m), backward (n, m) ([], []))
           + score (flattenSeq1 !! (i - 1)) (flattenSeq2 !! (j - 1))
 
     -- trace back, resrotre alignment
+    backward :: (Int, Int) -> ([Maybe a], [Maybe a]) -> ([Maybe a], [Maybe a])
     backward (i, 0) (acc1, acc2) = (acc1', acc2')
       where
         acc1' = map Just (take i flattenSeq1) ++ acc1
@@ -285,21 +293,21 @@ align seq1 seq2 = (getUnsafe dp (n, m), backward (n, m) ([], []))
 -- (14.0,([Nothing,Just 'A',Just 'B',Just 'A'],[Just 'C',Just 'A',Just 'B',Just 'A']))
 -- (13.0,([Nothing,Just 'T',Just 'T',Just 'G',Just 'A'],[Just 'A',Just 'T',Just 'T',Just 'G',Nothing]))
 class SymbolReadable a where
-  toSymbol :: Char -> a
+  fromSymbol :: Char -> a
 
 instance SymbolReadable DNA where
-  toSymbol 'A' = A
-  toSymbol 'G' = G
-  toSymbol 'T' = T
-  toSymbol 'C' = C
-  toSymbol _ = error "Can't parse DNA"
+  fromSymbol 'A' = A
+  fromSymbol 'G' = G
+  fromSymbol 'T' = T
+  fromSymbol 'C' = C
+  fromSymbol _ = error "Can't parse DNA"
 
 instance SymbolReadable RNA where
-  toSymbol 'A' = A'
-  toSymbol 'G' = G'
-  toSymbol 'U' = U'
-  toSymbol 'C' = C'
-  toSymbol _ = error "Can't parse RNA"
+  fromSymbol 'A' = A'
+  fromSymbol 'G' = G'
+  fromSymbol 'U' = U'
+  fromSymbol 'C' = C'
+  fromSymbol _ = error "Can't parse RNA"
 
 -- 6.2 Реализуйте функцию 'toSeq' прнимающую строку, а возвращающую 'Seq' элементов типа,
 --     являющегося представителем класса типов 'SymbolReadable'. (0.1 б)
@@ -307,7 +315,7 @@ createSeq :: [a] -> Seq a
 createSeq xs = Seq $ A.array (0, length xs - 1) (zip [0 ..] xs)
 
 toSeq :: SymbolReadable a => String -> Seq a
-toSeq s = createSeq $ map toSymbol s
+toSeq s = createSeq $ map fromSymbol s
 
 dnaSeq :: Seq DNA
 dnaSeq = toSeq "ATGAG"
@@ -363,6 +371,7 @@ instance WithCoords AminoAcid where
 
   setCoords a coords = AminoAcid res (aminoAcidName a)
     where
+      helper :: WithCoords a => [a] -> [Point] -> [a] -> [a]
       helper (a:as) (c:cs) acc = helper as cs (setCoords a [c]:acc)
       helper [] [] acc = acc
       helper [] _ _ = error "Wrong coords"
@@ -393,6 +402,7 @@ instance (Indexable c, WithCoords a) => WithCoords (c a) where
 
   setCoords a coords = helper a (indices a) coords
     where
+      helper :: c a -> [Index c] -> [Point] -> c a
       helper a (i:is) cs = helper a' is cs'
         where
           e = getUnsafe a i
