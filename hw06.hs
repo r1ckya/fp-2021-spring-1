@@ -7,6 +7,7 @@ module Main where
 -- Поподробнее с тем, что это такое, мы познакомимся чуть позже.
 -- Но, как вы могли догадаться, для выполнения домашки нам понадобились какие-то расширения!
 import           Data.Array (Array, Ix)
+import           Data.Maybe (isNothing, fromJust)
 import qualified Data.Array as A ((!), (//), array, bounds, indices, listArray)
 import qualified Data.Ix as Ix (inRange)
 
@@ -128,17 +129,33 @@ instance Ix ind => Indexable (Array ind) where
 -- Just 1000
   -- 3. Определите новый тип 'Seq a', который является обёрткой над 'Array Int a'.
   --    Сделайте его представителем класса типов 'Indexable'. (0.25 б)
-type Seq a = Array Int a
+newtype Seq a = Seq (Array Int a)
+  deriving (Show)
+
+instance Indexable Seq where
+  type Index Seq = Int
+
+  get (Seq x) i = get x i
+
+  update (Seq x) i v
+    | isNothing ret = Nothing
+    | otherwise = Just $ Seq $ fromJust ret
+    where
+      ret = update x i v
+
+  indices (Seq x) = indices x
 
 charSeq :: Seq Char
-charSeq = A.array (0, 5) $ zip [0 ..] ['a', 'b', 'c', 'd', 'e', 'f']
+charSeq = Seq $ A.array (0, 5) $ zip [0 ..] ['a', 'b', 'c', 'd', 'e', 'f']
 
 -- >>> charSeq
 -- >>> indices charSeq
 -- >>> get charSeq 3
--- array (0,5) [(0,'a'),(1,'b'),(2,'c'),(3,'d'),(4,'e'),(5,'f')]
+-- >>> update charSeq 3 'A'
+-- Seq (array (0,5) [(0,'a'),(1,'b'),(2,'c'),(3,'d'),(4,'e'),(5,'f')])
 -- [0,1,2,3,4,5]
 -- Just 'd'
+-- Just (Seq (array (0,5) [(0,'a'),(1,'b'),(2,'c'),(3,'A'),(4,'e'),(5,'f')]))
   -- 4. Перепешите функцию @align@ с практики так, чтобы она выравнивала
   --    друг на друга две любые 'Indexable'-структуры данных. (0.25 б)
   ------------------------------------------------------------------------------------
@@ -287,7 +304,7 @@ instance SymbolReadable RNA where
 -- 6.2 Реализуйте функцию 'toSeq' прнимающую строку, а возвращающую 'Seq' элементов типа,
 --     являющегося представителем класса типов 'SymbolReadable'. (0.1 б)
 createSeq :: [a] -> Seq a
-createSeq xs = A.array (0, length xs - 1) (zip [0 ..] xs)
+createSeq xs = Seq $ A.array (0, length xs - 1) (zip [0 ..] xs)
 
 toSeq :: SymbolReadable a => String -> Seq a
 toSeq s = createSeq $ map toSymbol s
@@ -296,7 +313,7 @@ dnaSeq :: Seq DNA
 dnaSeq = toSeq "ATGAG"
 
 -- >>> dnaSeq
--- array (0,4) [(0,A),(1,T),(2,G),(3,A),(4,G)]
+-- Seq (array (0,4) [(0,A),(1,T),(2,G),(3,A),(4,G)])
 dnaSeq2 :: Seq DNA
 dnaSeq2 = toSeq "AUGUG"
 
@@ -306,7 +323,7 @@ rnaSeq :: Seq RNA
 rnaSeq = toSeq "AUGUG"
 
 -- >>> rnaSeq
--- array (0,4) [(0,A'),(1,U'),(2,G'),(3,U'),(4,G')]
+-- Seq (array (0,4) [(0,A'),(1,U'),(2,G'),(3,U'),(4,G')])
 rnaSeq2 :: Seq RNA
 rnaSeq2 = toSeq "ATGUG"
 
