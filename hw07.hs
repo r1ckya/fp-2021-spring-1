@@ -1,9 +1,10 @@
--- В Хаскеле есть тип данных 'Map k v', сопостовляющий каждому ключу 
+-- В Хаскеле есть тип данных 'Map k v', сопостовляющий каждому ключу
+module Main where
+
 -- типа @k@ какое-то конкретное значение типа @v@.
-import Data.Map.Strict (Map)
+import           Data.Map.Strict (Map)
 
 -- 1. Реализуйте исключительно с помощью свёрток:
-
 -- | 1.1. Функция, суммирующая квадраты элементов списка (0.1 б)
 --
 sumOfSquares :: Num a => [a] -> a
@@ -21,20 +22,18 @@ getByIndex = undefined
 
 -- | Тип данных "Студент"
 --
-data Student 
-  = Student 
-      { name  :: String -- имя студента
-      , grade :: Int    -- оценка студента по нашему предмету
-      }
+data Student =
+  Student { name :: String -- имя студента
+          , grade :: Int    -- оценка студента по нашему предмету
+          }
 
 -- | Тип данных "Информация о студентах курса"
 --
-data StudentsLog
-  = StudentsLog
-      { studentNames :: [String]  -- список имён студентов
-      , worstGrade   :: Maybe Int -- наименьшапя оценка по курсу
-      , bestGrade    :: Maybe Int -- наибольшая оценка по курсу
-      }
+data StudentsLog =
+  StudentsLog { studentNames :: [String]  -- список имён студентов
+              , worstGrade :: Maybe Int -- наименьшапя оценка по курсу
+              , bestGrade :: Maybe Int -- наибольшая оценка по курсу
+              }
 
 -- | 1.4. Функция, которая по списку студентов курса рассчитывает информацию по курсу (0.5 б)
 --
@@ -48,7 +47,7 @@ calculateStudentsLog = undefined
 insert :: Ord a => [a] -> a -> [a]
 insert = undefined
 
--- | 1.6. Сортировка вставками. В реализации можно использовать функцию @insert@, 
+-- | 1.6. Сортировка вставками. В реализации можно использовать функцию @insert@,
 --        если вы её реализовали (0.5 б)
 --
 insertionSort :: Ord a => [a] -> [a]
@@ -71,23 +70,20 @@ calculateStudentsLog' = undefined
 
 -- | Хорошо знакомый нам тип данных "Дерево"
 --
-data Tree a = Node a [Tree] | Leaf
+data Tree a = Node a [Tree a]
+            | Leaf
   deriving (Eq, Show)
 
 -- 3. Сделайте 'Tree' представителем класса типов 'Foldable' (1 б)
-
 -- | Тип данных "Яблоко"
 --
-data Apple 
-  = Apple 
-      { color  :: String -- цвет яблока
-      , weight :: Float  -- вес яблока
-      }
+data Apple = Apple { color :: String -- цвет яблока
+                   , weight :: Float  -- вес яблока
+                   }
   deriving (Eq, Show)
 
 -- | 4. С помощью функйций из 'Data.Foldable' реализуйте следующие функции:
-
--- | 4.1. Проверка, что все яблоки в дереве имеют вес, который находится 
+-- | 4.1. Проверка, что все яблоки в дереве имеют вес, который находится
 --        в заданном диапазоне весов (0.1 б)
 --
 applesInRange :: Tree Apple -> (Float, Float) -> Bool
@@ -104,7 +100,6 @@ heaviestApple = undefined
 thisApple :: Tree Apple -> [String] -> (Int, Int) -> Maybe Apple
 thisApple = undefined
 
-
 -- | 4.4 Считает сумму весов всех яблок в дереве.
 --       В реализации нужно использовать 'Data.Foldable.sum' (0.25 б)
 --
@@ -118,35 +113,34 @@ sumOfApples = undefined
 newtype Basket = Basket { apples :: Map String [Apple] }
   deriving (Eq, Show)
 
--- | 5. Реализуйте с помощью свёртки дерева функцию, которая соберёт 
+-- | 5. Реализуйте с помощью свёртки дерева функцию, которая соберёт
 --      по дереву яблок корзинку с яблоками.
 --      В 'Data.Map.Strict' вы найдёте функции, которые помогут вам
 --      инициализировать и модифицировать мапу (0.5 б)
---      
-collectBasket :: Apple Tree -> Basket
+--
+collectBasket :: Tree Apple -> Basket
 collectBasket = undefined
 
 -- | Двоичная куча (https://neerc.ifmo.ru/wiki/index.php?title=Двоичная_куча)
 --
-data BinaryHeap a 
-  = BinNode 
-      { val   :: a
-      , left  :: BinaryHeap a
-      , right :: BinaryHeap a
-      } 
+data BinaryHeap a =
+    BinNode { val :: a, left :: BinaryHeap a, right :: BinaryHeap a }
   | BinLeaf
   deriving (Eq, Show)
 
 -- | 6.1. Реализуйте функцию siftDown, восстанавливающую свойство кучи в куче (0.5 б)
---      
+--
 siftDown :: Ord a => BinaryHeap a -> BinaryHeap a
-buildHeap = undefined
+siftDown = undefined
 
--- | 6.2. Реализуйте с помощью свёртки (которая уже написана в коде) 
---        функцию buildHeap, которая за __линейное время__ конструирует 
+-- | 6.2. Реализуйте с помощью свёртки (которая уже написана в коде)
+--        функцию buildHeap, которая за __линейное время__ конструирует
 --        на основе спиcка элементов бинарную кучу.
 --        Соответствующий алогритм описан в статье на вики (ссылка выше).
 --        Считайте, что изменение элемента 'Data.Array' происходит за константу (хотя это не так!) (1 б)
---       
+--
 buildHeap :: Ord a => [a] -> BinaryHeap a
 buildHeap l = foldr undefined undefined l
+
+main :: IO Int
+main = return 0
