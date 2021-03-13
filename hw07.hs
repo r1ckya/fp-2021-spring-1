@@ -8,7 +8,8 @@ module Main where
 import           Data.Array (Array, listArray, (!), (//))
 import           Data.List (foldl')
 import           Data.Map.Strict (Map, empty, insertWith, unionWith)
-import           Data.Semigroup (All(All), Sum(Sum), getAll, getSum)
+import           Data.Foldable (all, maximumBy, find)
+import           Data.Ord (comparing)
 
 -- 1. Реализуйте исключительно с помощью свёрток:
 -- | 1.1. Функция, суммирующая квадраты элементов списка (0.1 б)
@@ -30,20 +31,18 @@ reverse' = foldl' (flip (:)) []
 -- [3,2,1]
 --
 -- | 1.3. Функция, которая достаёт из списка элемент по индексу (0.25 б)
-getByIndex :: [a] -> Int -> a
-getByIndex a idx
-  | 0 <= idx && idx < length a = foldl' helper (head a) (zip [0 ..] a)
-  | otherwise = error "Index out of range"
+getByIndex :: [a] -> Int -> Maybe a
+getByIndex a idx = fst $ foldl' helper (Nothing, 0) a
   where
-    helper :: a -> (Int, a) -> a
-    helper x (i, y)
-      | i == idx = y
-      | otherwise = x
+    helper :: (Maybe a, Int) -> a -> (Maybe a, Int)
+    helper (x, i) a
+      | i == idx = (Just a, i + 1)
+      | otherwise = (x, i + 1)
 
 -- >>> getByIndex [1, 2, 3] 1
--- 2
+-- Just 2
 -- >>> getByIndex [1, 2, 3] 3
--- Index out of range
+-- Nothing
 --
 -- | Тип данных "Студент"
 data Student =
@@ -168,32 +167,27 @@ data Tree a = Node a [Tree a]
   deriving (Eq, Show)
 
 -- 3. Сделайте 'Tree' представителем класса типов 'Foldable' (1 б)
--- | Тип данных "Яблоко"
+--
 instance Foldable Tree where
-  foldr f z Leaf = z
-  foldr f z (Node a []) = f a z
-  foldr f z (Node a neighbours) = helper
-    where
-      helper = f a $ Prelude.foldr (flip $ foldr f) z neighbours
-
+  -- foldr f z Leaf = z
+  -- foldr f z (Node a []) = f a z
+  -- foldr f z (Node a neighbours) = helper
+  --   where
+  --     helper = f a $ Prelude.foldr (flip $ foldr f) z neighbours
+  --
   foldMap f Leaf = mempty
   foldMap f (Node a []) = f a
   foldMap f (Node a neighbours) = mconcat $ f a:map (foldMap f) neighbours
 
+-- | Тип данных "Яблоко"
+--
 data Apple = Apple { color :: String  -- цвет яблока
                    , weight :: Float -- вес яблока
                    }
   deriving (Eq, Show)
 
 -- | 4. С помощью функйций из 'Data.Foldable' реализуйте следующие функции:
--- | 4.1. Проверка, что все яблоки в дереве имеют вес, который находится
---        в заданном диапазоне весов (0.1 б)
-applesInRange :: Tree Apple -> (Float, Float) -> Bool
-applesInRange tree (low, high) = getAll $ foldMap helper tree
-  where
-    helper :: Apple -> All
-    helper Apple { weight = w } = All $ low <= w && w <= high
-
+--
 appleTree :: Tree Apple
 appleTree = Node
   (Apple "A" 2)
@@ -201,6 +195,19 @@ appleTree = Node
   , Node (Apple "C" 3) []
   , Node (Apple "D" 5) []]
 
+-- | 4.1. Проверка, что все яблоки в дереве имеют вес, который находится
+--        в заданном диапазоне весов (0.1 б)
+--
+applesInRange :: Tree Apple -> (Float, Float) -> Bool
+applesInRange tree (low, high) =
+  all (\Apple { weight = w } -> low <= w && w <= high) tree
+
+--
+-- applesInRange tree (low, high) = getAll $ foldMap helper tree
+--   where
+--     helper :: Apple -> All
+--     helper Apple { weight = w } = All $ low <= w && w <= high
+--
 -- >>> applesInRange appleTree (1, 5)
 -- >>> applesInRange appleTree (2, 3)
 -- >>> applesInRange appleTree (3, 100)
@@ -209,15 +216,20 @@ appleTree = Node
 -- False
 --
 -- | 4.2. Находит яблоко с наибольшим весом (0.1 б)
+--
 heaviestApple :: Tree Apple -> Maybe Apple
-heaviestApple = foldr helper Nothing
-  where
-    helper :: Apple -> Maybe Apple -> Maybe Apple
-    helper apple Nothing = Just apple
-    helper apple (Just acc)
-      | weight apple > weight acc = Just apple
-      | otherwise = Just acc
+heaviestApple Leaf = Nothing
+heaviestApple tree = Just $ maximumBy (comparing weight) tree
 
+--
+-- heaviestApple = foldr helper Nothing
+--   where
+--     helper :: Apple -> Maybe Apple -> Maybe Apple
+--     helper apple Nothing = Just apple
+--     helper apple (Just acc)
+--       | weight apple > weight acc = Just apple
+--       | otherwise = Just acc
+--
 -- >>> heaviestApple appleTree
 -- Just (Apple {color = "D", weight = 5.0})
 -- >>> heaviestApple Leaf
@@ -225,15 +237,20 @@ heaviestApple = foldr helper Nothing
 --
 -- | 4.3 Находит яблоко с цветом из заданного списка цветов и весом,
 --       находящимся в заданном диапазоне весов (0.1 б)
+--
 thisApple :: Tree Apple -> [String] -> (Float, Float) -> Maybe Apple
-thisApple tree colors (low, high) = foldr helper Nothing tree
-  where
-    helper :: Apple -> Maybe Apple -> Maybe Apple
-    helper apple@(Apple c w) Nothing
-      | c `elem` colors && low <= w && w <= high = Just apple
-      | otherwise = Nothing
-    helper apple (Just acc) = Just acc
+thisApple tree colors (low, high) =
+  find (\(Apple c w) -> c `elem` colors && low <= w && w <= high) tree
 
+--
+-- thisApple tree colors (low, high) = foldr helper Nothing tree
+--   where
+--     helper :: Apple -> Maybe Apple -> Maybe Apple
+--     helper apple@(Apple c w) Nothing
+--       | c `elem` colors && low <= w && w <= high = Just apple
+--       | otherwise = Nothing
+--     helper apple (Just acc) = Just acc
+--
 -- >>> thisApple appleTree ["A"] (2, 3)
 -- >>> thisApple appleTree ["A", "D"] (3, 5)
 -- >>> thisApple appleTree [] (-1, 1)
@@ -247,15 +264,27 @@ thisApple tree colors (low, high) = foldr helper Nothing tree
 --
 -- | 4.4 Считает сумму весов всех яблок в дереве.
 --       В реализации нужно использовать 'Data.Foldable.sum' (0.25 б)
+--
+-- sum :: Num a => t a -> a
+-- but Apple is not instance of Num
+-- so we can't apply sum directly
+--
 sumOfApples :: Tree Apple -> Float
-sumOfApples tree = getSum $ foldMap (Sum . weight) tree
+sumOfApples = foldr (\apple x -> weight apple + x) 0
 
+--
+-- sumOfApples tree = getSum $ foldMap (Sum . weight) tree
+-- sumOfApples tree = sum $ concatMap (\Apple { weight = w } -> [w]) tree
+--
 -- >>> sumOfApples appleTree
+-- >>> sumOfApples Leaf
 -- 15.0
+-- 0.0
 --
 -- | Корзинка с яблоками.
 --   Важно, что яблоки в корзинке расфасованы по цветам.
 --   Для каждого цвета яблоки упорядочены по весу
+--
 newtype Basket = Basket { apples :: Map String [Apple] }
   deriving (Eq, Show)
 
@@ -263,29 +292,32 @@ newtype Basket = Basket { apples :: Map String [Apple] }
 --      по дереву яблок корзинку с яблоками.
 --      В 'Data.Map.Strict' вы найдёте функции, которые помогут вам
 --      инициализировать и модифицировать мапу (0.5 б)
+--
 collectBasket :: Tree Apple -> Basket
 collectBasket Leaf = Basket empty
 collectBasket (Node apple neighbours) = Basket
   $ insertWith merge (color apple) [apple]
-  $ foldr (unionWith merge . apples . collectBasket) empty neighbours
+  $ foldl' (flip $ unionWith merge . apples . collectBasket) empty neighbours
   where
     merge :: [Apple] -> [Apple] -> [Apple]
     merge [] ys = ys
     merge xs [] = xs
-    merge (x:xs) (y:ys)
-      | weight x < weight y = x:merge xs (y:ys)
-      | otherwise = y:merge (x:xs) ys
+    merge allx@(x:xs) ally@(y:ys)
+      | weight x < weight y = x:merge xs ally
+      | otherwise = y:merge allx ys
 
 -- >>> collectBasket appleTree
 -- Basket {apples = fromList [("A",[Apple {color = "A", weight = 1.0},Apple {color = "A", weight = 2.0}]),("B",[Apple {color = "B", weight = 2.0}]),("C",[Apple {color = "C", weight = 2.0},Apple {color = "C", weight = 3.0}]),("D",[Apple {color = "D", weight = 5.0}])]}
 --
 -- | Двоичная куча (https://neerc.ifmo.ru/wiki/index.php?title=Двоичная_куча)
+--
 data BinaryHeap a =
     BinNode { val :: a, left :: BinaryHeap a, right :: BinaryHeap a }
   | BinLeaf
   deriving (Eq, Show)
 
 -- | 6.1. Реализуйте функцию siftDown, восстанавливающую свойство кучи в куче (0.5 б)
+--
 siftDown :: Ord a => BinaryHeap a -> BinaryHeap a
 siftDown BinLeaf = BinLeaf
 siftDown node@(BinNode a leftNode rightNode) = case (leftNode, rightNode) of
@@ -323,49 +355,82 @@ heap = BinNode
 --        на основе спиcка элементов бинарную кучу.
 --        Соответствующий алогритм описан в статье на вики (ссылка выше).
 --        Считайте, что изменение элемента 'Data.Array' происходит за константу (хотя это не так!) (1 б)
-buildHeap :: forall a. Ord a => [a] -> BinaryHeap a
-buildHeap lst = build 1
+--
+makeHeap :: a -> BinaryHeap a
+makeHeap a = BinNode a BinLeaf BinLeaf
+
+-- >>> makeHeap 128
+-- >>> makeHeap "ABC"
+-- BinNode {val = 128, left = BinLeaf, right = BinLeaf}
+-- BinNode {val = "ABC", left = BinLeaf, right = BinLeaf}
+--
+myBuildHeap :: forall a. Ord a => [a] -> BinaryHeap a
+myBuildHeap lst = build 1
   where
     len = length lst
+
+    halfLen = len `div` 2
 
     arr :: Array Int a
     arr = listArray (1, len) lst
 
-    heapify :: Int -> Array Int a -> Array Int a
-    heapify i xs
-      | iRight <= len = if
-        | rightVal > curVal && rightVal > leftVal -> goRight
-        | leftVal > curVal && leftVal > rightVal -> goLeft
-        | otherwise -> xs
-      | iLeft <= len && leftVal > curVal = goLeft
-      | otherwise = xs
+    build :: Int -> BinaryHeap a
+    build i
+      | i <= halfLen = siftDown
+        $ BinNode (arr ! i) (build $ 2 * i) (build $ 2 * i + 1)
+      | i <= len = makeHeap (arr ! i)
+      | otherwise = BinLeaf
+
+buildHeap :: forall a. Ord a => [a] -> BinaryHeap a
+buildHeap lst = heapifyed ! 1
+  where
+    len = length lst
+
+    arr :: Array Int (BinaryHeap a)
+    arr = listArray (1, len) $ map makeHeap lst
+
+    heapify :: Int -> Array Int (BinaryHeap a) -> Array Int (BinaryHeap a)
+    heapify i arr = arr // updates
       where
         iLeft = 2 * i
 
         iRight = 2 * i + 1
 
-        curVal = xs ! i
+        curVal = val $ arr ! i
 
-        leftVal = xs ! iLeft
+        -- left is always in arr
+        leftHeap :: BinaryHeap a
+        leftHeap = arr ! iLeft
 
-        rightVal = xs ! iRight
+        rightHeap :: BinaryHeap a
+        rightHeap
+          | iRight <= len = arr ! iRight
+          | otherwise = BinLeaf
 
-        goLeft = heapify iLeft $ xs // [(i, leftVal), (iLeft, curVal)]
+        newHeap :: BinaryHeap a
+        newHeap = siftDown $ BinNode curVal leftHeap rightHeap
 
-        goRight = heapify iRight $ xs // [(i, rightVal), (iRight, curVal)]
+        -- remove merged nodes, left is always in arr
+        updates :: [(Int, BinaryHeap a)]
+        updates
+          | iRight <= len = [(i, newHeap), (iLeft, BinLeaf), (iRight, BinLeaf)]
+          | otherwise = [(i, newHeap), (iLeft, BinLeaf)]
 
-    heapifyed :: Array Int a
+    heapifyed :: Array Int (BinaryHeap a)
     heapifyed = foldr heapify arr [1 .. len `div` 2]
 
-    build :: Int -> BinaryHeap a
-    build i
-      | i > len = BinLeaf
-      | otherwise = BinNode (heapifyed ! i) (build $ 2 * i) (build $ 2 * i + 1)
-
--- >>> buildHeap [1 .. 7]
--- >>> buildHeap [7, 6 .. 1]
--- BinNode {val = 7, left = BinNode {val = 5, left = BinNode {val = 4, left = BinLeaf, right = BinLeaf}, right = BinNode {val = 2, left = BinLeaf, right = BinLeaf}}, right = BinNode {val = 6, left = BinNode {val = 1, left = BinLeaf, right = BinLeaf}, right = BinNode {val = 3, left = BinLeaf, right = BinLeaf}}}
--- BinNode {val = 7, left = BinNode {val = 6, left = BinNode {val = 4, left = BinLeaf, right = BinLeaf}, right = BinNode {val = 3, left = BinLeaf, right = BinLeaf}}, right = BinNode {val = 5, left = BinNode {val = 2, left = BinLeaf, right = BinLeaf}, right = BinNode {val = 1, left = BinLeaf, right = BinLeaf}}}
+-- >>> buildHeap [1 .. 6]
+-- >>> myBuildHeap [1 .. 6]
+-- >>> buildHeap [1 .. 6] == myBuildHeap [1 .. 6]
+-- >>> buildHeap [6, 5 .. 1]
+-- >>> myBuildHeap [6, 5 .. 1]
+-- >>> buildHeap [6, 5 .. 1] == myBuildHeap [6, 5 .. 1]
+-- BinNode {val = 6, left = BinNode {val = 5, left = BinNode {val = 4, left = BinLeaf, right = BinLeaf}, right = BinNode {val = 2, left = BinLeaf, right = BinLeaf}}, right = BinNode {val = 3, left = BinNode {val = 1, left = BinLeaf, right = BinLeaf}, right = BinLeaf}}
+-- BinNode {val = 6, left = BinNode {val = 5, left = BinNode {val = 4, left = BinLeaf, right = BinLeaf}, right = BinNode {val = 2, left = BinLeaf, right = BinLeaf}}, right = BinNode {val = 3, left = BinNode {val = 1, left = BinLeaf, right = BinLeaf}, right = BinLeaf}}
+-- True
+-- BinNode {val = 6, left = BinNode {val = 5, left = BinNode {val = 3, left = BinLeaf, right = BinLeaf}, right = BinNode {val = 2, left = BinLeaf, right = BinLeaf}}, right = BinNode {val = 4, left = BinNode {val = 1, left = BinLeaf, right = BinLeaf}, right = BinLeaf}}
+-- BinNode {val = 6, left = BinNode {val = 5, left = BinNode {val = 3, left = BinLeaf, right = BinLeaf}, right = BinNode {val = 2, left = BinLeaf, right = BinLeaf}}, right = BinNode {val = 4, left = BinNode {val = 1, left = BinLeaf, right = BinLeaf}, right = BinLeaf}}
+-- True
 --
 main :: IO Int
 main = return 0
